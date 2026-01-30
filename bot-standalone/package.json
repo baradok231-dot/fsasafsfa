@@ -1,0 +1,12 @@
+{
+  "name": "telegram-bot-aggregator",
+  "version": "1.0.0",
+  "description": "Telegram Bot Aggregator - Multiple tools in one bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
