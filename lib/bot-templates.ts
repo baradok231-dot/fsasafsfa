@@ -129,12 +129,12 @@ export const BOT_TEMPLATES: BotTemplate[] = [
 
 // Твой главный бот для рекламы
 export const MAIN_BOT_CONFIG = {
-  username: "@BotFactory_Bot", // Замени на юзернейм своего бота
-  name: "BotFactory",
-  link: "https://t.me/BotFactory_Bot",
+  username: "@GarantPosterBOt",
+  name: "GarantPoster",
+  link: "https://t.me/GarantPosterBOt",
   promoMessages: [
     "Создай своего бота бесплатно",
     "Хочешь такого же бота? Создай за 5 минут!",
-    "Powered by BotFactory - создай бота без кода",
+    "Powered by @GarantPosterBOt - создай бота без кода",
   ],
 }

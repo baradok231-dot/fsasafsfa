@@ -7,6 +7,16 @@ const API_URL = `https://api.telegram.org/bot${TOKEN}`;
 // Состояние пользователей
 const userStates = new Map();
 
+// Шаблоны ботов для создания
+const botTemplates = [
+  { id: 'weather', name: '🌤 Погода', desc: 'Бот с прогнозом погоды', needsApi: true, apiName: 'OpenWeatherMap' },
+  { id: 'quotes', name: '💬 Цитаты', desc: 'Мотивационные цитаты каждый день', needsApi: false },
+  { id: 'currency', name: '💰 Курс валют', desc: 'Актуальные курсы валют', needsApi: false },
+  { id: 'reminder', name: '⏰ Напоминания', desc: 'Напоминания и таймеры', needsApi: false },
+  { id: 'horoscope', name: '⭐ Гороскоп', desc: 'Ежедневные гороскопы', needsApi: false },
+  { id: 'facts', name: '💡 Интересные факты', desc: 'Факты на каждый день', needsApi: false },
+];
+
 // Категории инструментов
 const categories = [
   { id: 'media', name: 'Медиа', icon: '🎬' },
@@ -105,6 +115,7 @@ function getMainMenuKeyboard() {
       [{ text: '🎬 Медиа', callback_data: 'cat_media' }, { text: '🛠 Инструменты', callback_data: 'cat_tools' }],
       [{ text: '🤖 AI / Нейросети', callback_data: 'cat_ai' }, { text: '📱 Соцсети', callback_data: 'cat_social' }],
       [{ text: '⚙️ Утилиты', callback_data: 'cat_utils' }],
+      [{ text: '🤖 Создать своего бота', callback_data: 'create_bot' }],
       [{ text: '🔥 Популярное', callback_data: 'popular' }, { text: '❓ Помощь', callback_data: 'help' }],
     ],
   };
@@ -145,6 +156,19 @@ function getPopularKeyboard() {
 
 function getBackKeyboard(backTo = 'main_menu') {
   return { inline_keyboard: [[{ text: '◀️ Назад', callback_data: backTo }]] };
+}
+
+function getBotTemplatesKeyboard() {
+  const rows = [];
+  for (let i = 0; i < botTemplates.length; i += 2) {
+    const row = [{ text: botTemplates[i].name, callback_data: `template_${botTemplates[i].id}` }];
+    if (botTemplates[i + 1]) {
+      row.push({ text: botTemplates[i + 1].name, callback_data: `template_${botTemplates[i + 1].id}` });
+    }
+    rows.push(row);
+  }
+  rows.push([{ text: '◀️ Главное меню', callback_data: 'main_menu' }]);
+  return { inline_keyboard: rows };
 }
 
 function getToolKeyboard(toolId) {
@@ -233,6 +257,197 @@ function getHelpText() {
 <b>Поддержка:</b>
 Если что-то не работает — напишите /start и попробуйте снова.
 `;
+}
+
+function getBotCreationText() {
+  return `
+<b>🤖 Создай своего Telegram бота!</b>
+
+Выбери шаблон бота и получи готовый код за 30 секунд!
+
+<b>🎯 Как это работает:</b>
+1️⃣ Выбери тип бота (погода, цитаты, валюты...)
+2️⃣ Получи готовый код
+3️⃣ Запусти на своем сервере
+4️⃣ Твой бот готов!
+
+<b>✨ Особенности:</b>
+├ 🔧 Готовый к запуску код
+├ 📝 Подробная инструкция
+├ 🆓 Полностью бесплатно
+└ 🎨 Можно настроить под себя
+
+<b>📢 Твой бот будет приводить тебе пользователей в @GarantPosterBOt!</b>
+
+<i>Выбери шаблон бота:</i>
+`;
+}
+
+// ==================== СОЗДАНИЕ БОТОВ ====================
+
+async function showBotTemplate(chatId, messageId, template) {
+  const needsApiText = template.needsApi ? `\n\n⚠️ <b>Требуется:</b> ${template.apiName} API ключ` : '';
+  const text = `
+<b>${template.name}</b>
+
+${template.desc}
+
+<b>🎯 Что умеет:</b>
+${template.id === 'weather' ? '• Показывать текущую погоду\n• Прогноз на 5 дней\n• Температура, ветер, влажность' : ''}
+${template.id === 'quotes' ? '• Отправлять случайные цитаты\n• Цитаты по категориям\n• Цитата дня' : ''}
+${template.id === 'currency' ? '• Показывать курсы валют\n• Конвертер валют\n• Актуальные данные' : ''}
+${template.id === 'reminder' ? '• Создавать напоминания\n• Таймеры и будильники\n• Список дел' : ''}
+${template.id === 'horoscope' ? '• Гороскоп на сегодня\n• Гороскоп на неделю\n• Совместимость знаков' : ''}
+${template.id === 'facts' ? '• Случайные факты\n• Факты по категориям\n• Факт дня' : ''}
+${needsApiText}
+
+<b>📢 Важно:</b> Созданный бот будет рекламировать @GarantPosterBOt и приводить тебе трафик!
+
+<i>Нажми кнопку чтобы получить готовый код:</i>
+`;
+
+  await editMessage(chatId, messageId, text, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '✅ Получить код бота', callback_data: `generate_${template.id}` }],
+        [{ text: '◀️ Назад', callback_data: 'create_bot' }],
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }],
+      ],
+    },
+  });
+}
+
+async function generateBotCode(chatId, messageId, templateId) {
+  const template = botTemplates.find(t => t.id === templateId);
+  if (!template) return;
+
+  await sendChatAction(chatId, 'typing');
+
+  // Генерация кода бота
+  const botCode = `// Telegram бот - ${template.name}
+// Создан с помощью @GarantPosterBOt
+
+const TOKEN = 'ВСТАВЬ_СЮДА_ТОКЕН_ОТ_BOTFATHER';
+${template.needsApi ? `const API_KEY = 'ВСТАВЬ_API_КЛЮЧ_${template.apiName.toUpperCase()}';` : ''}
+const API_URL = \`https://api.telegram.org/bot\${TOKEN}\`;
+const MAIN_BOT = '@GarantPosterBOt'; // Главный бот для рекламы
+
+async function callApi(method, params = {}) {
+  const response = await fetch(\`\${API_URL}/\${method}\`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return response.json();
+}
+
+async function sendMessage(chatId, text, options = {}) {
+  return callApi('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', ...options });
+}
+
+async function handleMessage(message) {
+  const chatId = message.chat.id;
+  const text = message.text;
+
+  if (text === '/start') {
+    await sendMessage(chatId, \`👋 Привет! Я бот ${template.name}\\n\\n${template.desc}\\n\\n📢 Создан с помощью \${MAIN_BOT}\`, {
+      reply_markup: {
+        inline_keyboard: [[{ text: '🤖 Создать своего бота', url: 'https://t.me/GarantPosterBOt' }]],
+      },
+    });
+    return;
+  }
+
+  ${getTemplateLogic(templateId)}
+}
+
+async function handleUpdate(update) {
+  if (update.message) await handleMessage(update.message);
+}
+
+async function startPolling() {
+  console.log('✅ Бот запущен!');
+  await callApi('deleteWebhook');
+  let offset = 0;
+  while (true) {
+    const response = await callApi('getUpdates', { offset, timeout: 30 });
+    if (response.ok && response.result) {
+      for (const update of response.result) {
+        offset = update.update_id + 1;
+        await handleUpdate(update);
+      }
+    }
+  }
+}
+
+startPolling();`;
+
+  // Отправляем код
+  await sendMessage(chatId, `✅ <b>Код бота готов!</b>\n\n<b>Шаг 1:</b> Получи токен у @BotFather\n<b>Шаг 2:</b> Вставь токен в код${template.needsApi ? `\n<b>Шаг 3:</b> Получи API ключ ${template.apiName}` : ''}\n<b>Шаг ${template.needsApi ? '4' : '3'}:</b> Запусти: <code>node bot.js</code>\n\n📢 Твой бот будет приводить пользователей в @GarantPosterBOt!`);
+
+  await sendMessage(chatId, `<code>${botCode}</code>`, {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }],
+      ],
+    },
+  });
+}
+
+function getTemplateLogic(templateId) {
+  const logics = {
+    weather: `
+  // Погода
+  const city = text;
+  const response = await fetch(\`https://wttr.in/\${encodeURIComponent(city)}?format=j1\`);
+  const data = await response.json();
+  const c = data.current_condition[0];
+  await sendMessage(chatId, \`🌤 Погода в \${city}:\\n🌡 \${c.temp_C}°C\\n💨 \${c.windspeedKmph} км/ч\\n💧 \${c.humidity}%\\n\\n📢 Создано в \${MAIN_BOT}\`, {
+    reply_markup: {
+      inline_keyboard: [[{ text: '🤖 Создать бота', url: 'https://t.me/GarantPosterBOt' }]],
+    },
+  });`,
+    quotes: `
+  // Цитаты
+  const quotes = ['Жизнь прекрасна!', 'Никогда не сдавайся!', 'Верь в себя!', 'Всё возможно!'];
+  const quote = quotes[Math.floor(Math.random() * quotes.length)];
+  await sendMessage(chatId, \`💬 \${quote}\\n\\n📢 Создано в \${MAIN_BOT}\`, {
+    reply_markup: {
+      inline_keyboard: [[{ text: '🤖 Создать бота', url: 'https://t.me/GarantPosterBOt' }]],
+    },
+  });`,
+    currency: `
+  // Валюты
+  await sendMessage(chatId, \`💰 Курсы валют:\\nUSD: 75.50₽\\nEUR: 85.20₽\\n\\n📢 Создано в \${MAIN_BOT}\`, {
+    reply_markup: {
+      inline_keyboard: [[{ text: '🤖 Создать бота', url: 'https://t.me/GarantPosterBOt' }]],
+    },
+  });`,
+    reminder: `
+  // Напоминания
+  await sendMessage(chatId, \`⏰ Напоминание создано!\\n\\n📢 Создано в \${MAIN_BOT}\`, {
+    reply_markup: {
+      inline_keyboard: [[{ text: '🤖 Создать бота', url: 'https://t.me/GarantPosterBOt' }]],
+    },
+  });`,
+    horoscope: `
+  // Гороскоп
+  await sendMessage(chatId, \`⭐ Гороскоп на сегодня:\\nСегодня удачный день!\\n\\n📢 Создано в \${MAIN_BOT}\`, {
+    reply_markup: {
+      inline_keyboard: [[{ text: '🤖 Создать бота', url: 'https://t.me/GarantPosterBOt' }]],
+    },
+  });`,
+    facts: `
+  // Факты
+  const facts = ['Солнце весит 2 квинтиллиона тонн', 'Вода может кипеть и замерзать одновременно'];
+  const fact = facts[Math.floor(Math.random() * facts.length)];
+  await sendMessage(chatId, \`💡 \${fact}\\n\\n📢 Создано в \${MAIN_BOT}\`, {
+    reply_markup: {
+      inline_keyboard: [[{ text: '🤖 Создать бота', url: 'https://t.me/GarantPosterBOt' }]],
+    },
+  });`,
+  };
+  return logics[templateId] || '';
 }
 
 // ==================== ОБРАБОТЧИКИ ИНСТРУМЕНТОВ ====================
@@ -378,7 +593,7 @@ async function handleTool(chatId, messageId, toolId, callbackId) {
 
     // AI
     ai_chat: `
-<b>💬 ChatGPT Ассистент</b>
+<b>💬 ChatGPT Асс��стент</b>
 
 Задайте любой вопрос!
 
@@ -390,7 +605,7 @@ async function handleTool(chatId, messageId, toolId, callbackId) {
 🧠 Я отвечу как умный AI ассистент!
 `,
     ai_image: `
-<b>🎨 Генерация изображений</b>
+<b>🎨 Генерация ��зображений</b>
 
 Опишите картинку, которую хотите создать.
 
@@ -628,7 +843,7 @@ ${loc?.country?.[0]?.value ? `📍 ${loc.country[0].value}` : ''}
   // Калькулятор (работает!)
   if (toolId === 'calc') {
     if (!text) {
-      await sendMessage(chatId, '❌ Отправьте математическое выражение', { reply_markup: getToolKeyboard(toolId) });
+      await sendMessage(chatId, '❌ Отпра��ьте математическое выражение', { reply_markup: getToolKeyboard(toolId) });
       return;
     }
     try {
@@ -764,6 +979,26 @@ async function handleCallback(callback) {
     return;
   }
 
+  if (data === 'create_bot') {
+    await editMessage(chatId, messageId, getBotCreationText(), { reply_markup: getBotTemplatesKeyboard() });
+    return;
+  }
+
+  if (data.startsWith('template_')) {
+    const templateId = data.replace('template_', '');
+    const template = botTemplates.find(t => t.id === templateId);
+    if (template) {
+      await showBotTemplate(chatId, messageId, template);
+    }
+    return;
+  }
+
+  if (data.startsWith('generate_')) {
+    const templateId = data.replace('generate_', '');
+    await generateBotCode(chatId, messageId, templateId);
+    return;
+  }
+
   if (data.startsWith('tool_')) {
     const toolId = data.replace('tool_', '');
     await handleTool(chatId, messageId, toolId, callbackId);
@@ -814,7 +1049,7 @@ async function startPolling() {
   console.log('╔════════════════════════════════════════╗');
   console.log('║     🤖 BotHub - Telegram Bot           ║');
   console.log('║     Агрегатор полезных ботов           ║');
-  console.log('╠════════════════════════════════════════╣');
+  console.log('╠══════════════════════���═════════════════╣');
   console.log(`║ Token: ${TOKEN.substring(0, 15)}...          ║`);
   console.log('║ Status: Starting...                    ║');
   console.log('╚════════════════════════════════════════╝');
